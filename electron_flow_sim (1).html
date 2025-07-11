@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Electron Flow in Cu Conductor with Voltage Source</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.5.0/p5.min.js"></script>
+  <style>
+    body { margin: 0; }
+    canvas { display: block; margin: auto; }
+  </style>
+</head>
+<body>
+<script>
+let electrons = [];
+let numElectrons = 40;
+let planeX;
+let crossCount = 0;
+let current = 0;
+let lastUpdateTime;
+let chargePerElectron = 1.6e-19;
+let windowDuration = 1000;
+let crossingsInWindow = 0;
+let voltageSlider, areaSlider, lengthSlider;
+let A = 1e-6;
+let L = 1;
+let n = 8.5e28;
+let e = 1.6e-19;
+let m = 9.11e-31;
+let tao = 2.5e-14;
+
+function setup() {
+  createCanvas(1000, 550);
+  planeX = width / 2;
+  for (let i = 0; i < numElectrons; i++) {
+    electrons.push({
+      x: random(200, 800),
+      y: random(220, 320),
+      vx: 1
+    });
+  }
+  lastUpdateTime = millis();
+
+  voltageSlider = createSlider(1, 10, 1, 0.1);
+  voltageSlider.position(700, 75);
+  voltageSlider.style('width', '200px');
+
+  areaSlider = createSlider(1, 10, 1, 0.1);
+  areaSlider.position(700, 105);
+  areaSlider.style('width', '200px');
+
+  lengthSlider = createSlider(0.1, 10, 1, 0.1);
+  lengthSlider.position(700, 135);
+  lengthSlider.style('width', '200px');
+}
+
+function draw() {
+  background(255);
+
+  let V = voltageSlider.value();
+  A = areaSlider.value() * 1e-6;
+  L = lengthSlider.value();
+  let vd = (e * V* tao) / (m*L);
+
+  // Draw copper conductor (horizontal rectangle)
+  noStroke();
+  fill(240, 170, 60);
+  rect(200, 200, 600, 120);
+
+  // Draw battery connected across the conductor
+  stroke(0);
+  strokeWeight(2);
+  // wires from left side of conductor to battery
+  line(200, 230, 160, 230);
+  line(160, 230, 160, 320);
+  // wires from right side of conductor to battery
+  line(800, 230, 840, 230);
+  line(840, 230, 840, 320);
+  // battery
+  noStroke();
+  fill(180);
+  rect(160, 320, 10, 40);
+  rect(170, 320, 10, 20);
+  fill(0);
+  textSize(14);
+  textAlign(CENTER);
+  text("-", 165, 315);
+  text("+", 175, 375);
+  text("Battery", 200, 350);
+  // bottom wire of battery
+  stroke(0);
+  line(170, 360, 840, 360);
+  line(840, 360, 840, 230);
+
+  // Cross-section plane
+  stroke(255, 0, 0);
+  strokeWeight(3);
+  line(planeX, 200, planeX, 320);
+  noStroke();
+
+  // Electrons
+  fill(0, 0, 255);
+  for (let e of electrons) {
+    e.vx = map(vd, 0, 1e-3, 0.01, 0.1);
+    e.x += e.vx;
+    if (e.x > planeX && e.x - e.vx < planeX) {
+      crossCount++;
+      crossingsInWindow++;
+    }
+    if (e.x > 800) {
+      e.x = 200;
+    }
+    ellipse(e.x, e.y, 10, 10);
+  }
+
+  // Calculate current
+  let now = millis();
+  if (now - lastUpdateTime >= windowDuration) {
+    current = n * A * vd * e;
+    crossingsInWindow = 0;
+    lastUpdateTime = now;
+  }
+
+  // Labels and readouts
+  fill(0);
+  textSize(16);
+  textAlign(CENTER);
+  text("Electron Flow in Copper Conductor with Voltage Source", width / 2, 30);
+  text("Drift Velocity (v_d): " + vd.toFixed(5) + " m/s", width / 2, height - 150);
+  text("Current (I): " + current.toFixed(2) + " A", width / 2, height - 120);
+  
+
+  textAlign(LEFT);
+  textSize(14);
+  text("Potential Difference (V): " + V + " V", 240, 90);
+  text("Cross-sectional Area (A): " + (A * 1e6).toFixed(1) + " mm²", 240, 120);
+  text("Length (L): " + L + " m", 240, 150);
+}
+</script>
+<div style="
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background: #f0f0f0;
+  border-top: 1px solid #ccc;
+  font-family: sans-serif;
+  font-size: 14px;
+  padding: 10px;
+  box-sizing: border-box;
+  text-align: center;
+">
+  <strong>Copper (Cu) Properties:</strong><br>
+  Density: <code>8.96 × 10³ kg/m³</code> |
+  Atomic mass: <code>63.5 g/mol</code> |
+  Free electrons per atom: <code>1</code> |
+  Electron density (n): <code>8.5 × 10²⁸ electrons/m³</code> |
+  Resistivity: <code>1.7 × 10⁻⁸ Ω·m</code> |
+  Relaxation time (T): <code>2.5 × 10⁻¹⁴ s</code> |
+  Electron mass (m): <code>9.11 × 10⁻³¹ kg</code> |
+  Charge (e): <code>1.6 × 10⁻¹⁹ C</code>
+  <br><br><strong>Conceptual understanding: Ohm's Law</strong><br>
+ 
+  <p>
+  \( v_d = aT = \frac{e V T}{m L} \ because: a = \frac{e E}{m} \ , E = V/L\)
+ </p>
+
+  <p>
+    \( I = n A v_d e = \left( \frac{e^2 T n}{m} \right) \cdot \left( \frac{A}{L} \right) \cdot V \)
+  </p>
+
+  <p>
+    \( V = IR = I \cdot \left( \frac{m}{e^2 T n} \cdot \frac{L}{A} \right) \)
+  </p>
+
+  <p>
+    Resistance \( R = \frac{m}{e^2 T n} \cdot \frac{L}{A} \)
+  </p>
+	
+</div>
+<script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+<script id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+</script>
+
+</body>
+</html>
